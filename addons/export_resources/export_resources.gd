@@ -5,10 +5,6 @@ extends EditorPlugin
 func _enter_tree():
 	print("Export Resources Plugin Loaded")
 	add_tool_menu_item("Export Resources", export_resources)
-	var dependencies = ResourceLoader.get_dependencies("res://addons/export_resources/export_resources.gd")
-	for dependency in dependencies:
-		print(dependency)
-	print("Dependencies")
 	# Initialization of the plugin goes here.
 	pass
 
