@@ -96,7 +96,7 @@ func checkDependencies(file: String):
 	for dep in dependencies:
 		var uid = dep.get_slice("::", 0)
 		var path = dep.get_slice("::", 2)
-		if path == "" or uid == "" || uid.begins_with("res://"):
+		if path == "" or not uid.begins_with("uid://"):
 			continue # Skip empty paths and uid
 		# Verify the path matches case sensitivity to the actual path
 		if !file_exists(path):
