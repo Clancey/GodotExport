@@ -90,22 +90,22 @@ func _on_dir_selected(dir):
 	print(dir)
 	pass
 
-func checkMesh(file: String):
+func checkDependencies(file: String):
 	# print("Checking %s" % file)
 	var dependencies = ResourceLoader.get_dependencies(file)
 	for dep in dependencies:
 		var uid = dep.get_slice("::", 0)
 		var path = dep.get_slice("::", 2)
-		if path == "":
-			print("Empty path found for %s" % uid)
-			continue # Skip empty paths
-		path = path + ".import"
+		if path == "" or uid == "" || uid.begins_with("res://"):
+			continue # Skip empty paths and uid
 		# Verify the path matches case sensitivity to the actual path
 		if !file_exists(path):
 			print("Path does not exist: %s" % path)
 			continue
-		
-		var import_uid = parse_import_file(path)
+		var iuid = ResourceLoader.get_resource_uid(path)
+		if iuid == -1:
+			continue
+		var import_uid = ResourceUID.id_to_text(iuid)
 		if import_uid and import_uid != uid:
 			print("UID mismatch found for %s: expected %s, found %s" % [path, uid, import_uid])
 			var loader = ResourceLoader.load(file)
@@ -115,30 +115,8 @@ func checkMesh(file: String):
 func fix_UUID():
 	var tscn_files = find_tscn_files("res://")
 	for tscn_file in tscn_files:
-		if (tscn_file.ends_with(".mesh")):
-			checkMesh(tscn_file)
-		else:
-			# print("Checking %s" % tscn_file)
-			var resources = parse_tscn(tscn_file)
-			for resource in resources:
-				var import_path = resource.path + ".import"
-				if file_exists(import_path):
-					var import_uid = parse_import_file(import_path)
-					var uid = resource.uid
-					if import_uid and import_uid != uid:
-						print("Fixing UUID for %s" % tscn_file)
-						print("Old UUID: %s" % uid)
-						print("New UUID: %s" % import_uid)
-						# Replace the old UUID with the new one
-						var fixFile = FileAccess.open(tscn_file, FileAccess.READ_WRITE)
-						if not fixFile:
-							print("Failed to open file: %s" % fixFile)
-							return
-						var contents = fixFile.get_as_text()
-						contents = contents.replace(uid, import_uid)
-						fixFile.store_string(contents)
-						fixFile.close()
-
+		checkDependencies(tscn_file);
+	print("Done fixing UID errors")
 	pass
 
 func find_tscn_files(path: String) -> Array:
@@ -158,35 +136,6 @@ func find_tscn_files(path: String) -> Array:
 		dir.list_dir_end()
 	return result
 
-func parse_tscn(tscn_path: String) -> Array:
-	var file = FileAccess.open(tscn_path, FileAccess.READ)
-	if not file:
-		print("Failed to open file: %s" % tscn_path)
-		return []
-	
-	var resources = []
-	var is_ext_resource = false
-
-	while not file.eof_reached():
-		var line = file.get_line().strip_edges()
-		var current_uid = ""
-		var current_path = ""
-		if line.begins_with("[ext_resource"):
-			is_ext_resource = true
-			var items = line.split(" ")
-			for item in items:
-				if item.begins_with("uid"):
-					current_uid = item.split("=")[1].strip_edges().trim_prefix("\"").trim_suffix("\"")
-				elif item.find("path") != - 1:
-					current_path = item.split("=")[1].strip_edges().trim_prefix("\"").trim_suffix("\"")
-			if current_uid and current_path:
-				# print("found resource: %s, %s" % [current_uid, current_path])
-				resources.append({"uid": current_uid, "path": current_path})
-				current_uid = ""
-				current_path = ""
-	
-	file.close()
-	return resources
 
 func file_exists(path: String) -> bool:
 	var file = FileAccess.open(path, FileAccess.READ)
@@ -194,20 +143,3 @@ func file_exists(path: String) -> bool:
 		file.close()
 		return true
 	return false
-
-func parse_import_file(import_path: String) -> String:
-	var file = FileAccess.open(import_path, FileAccess.READ)
-	if not file:
-		print("Failed to open import file: %s" % import_path)
-		return ""
-	
-	var import_uid = ""
-
-	while not file.eof_reached():
-		var line = file.get_line().strip_edges()
-		if line.begins_with("uid"):
-			import_uid = line.split("=")[1].strip_edges().trim_prefix("\"").trim_suffix("\"")
-			break
-	
-	file.close()
-	return import_uid
